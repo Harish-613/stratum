@@ -14,8 +14,8 @@
   "contributes": {
     "commands": [
       {
-        "command": "stratum.helloWorld",
-        "title": "Hello World"
+        "command": "stratum.analyze",
+        "title": "Stratum: Analyze"
       }
     ]
   },
