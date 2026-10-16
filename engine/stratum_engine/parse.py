@@ -12,6 +12,8 @@ def parse_python(source: bytes) -> dict:
     for node in tree.root_node.children:
         if node.type == "import_statement":
             for name in node.children_by_field_name("name"):
+                if name.type == "aliased_import":
+                    name = name.child_by_field_name("name")
                 imports.append(name.text.decode())
         elif node.type == "import_from_statement":
             module = node.child_by_field_name("module_name")

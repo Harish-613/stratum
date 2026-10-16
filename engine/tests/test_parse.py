@@ -29,3 +29,7 @@ def test_finds_functions_and_classes():
 
 def test_empty_file():
     assert parse_python(b"") == {"imports": [], "functions": [], "classes": []}
+
+def test_import_alias_keeps_only_module_name():
+    result = parse_python(b"import numpy as np\n")
+    assert result["imports"] == ["numpy"]
