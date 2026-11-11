@@ -1,12 +1,14 @@
 {
   "name": "stratum",
-  "displayName": "stratum",
-  "description": "Maps large codebases into architecture diagrams",
+  "displayName": "Stratum",
+  "description": "Interactive dependency graphs, import cycles, dead code and duplicate detection for Python, JS/TS, Go and Java",
   "version": "0.0.1",
   "engines": {
     "vscode": "^1.140.0"
   },
   "categories": [
+    "Visualization",
+    "Linters",
     "Other"
   ],
   "activationEvents": [],
@@ -15,9 +17,28 @@
     "commands": [
       {
         "command": "stratum.analyze",
-        "title": "Stratum: Analyze"
+        "title": "Stratum: Analyze Workspace"
+      },
+      {
+        "command": "stratum.showGraph",
+        "title": "Stratum: Show Dependency Graph"
       }
-    ]
+    ],
+    "configuration": {
+      "title": "Stratum",
+      "properties": {
+        "stratum.pythonPath": {
+          "type": "string",
+          "default": "",
+          "description": "Python interpreter with the Stratum engine installed. Empty: the repo's .venv if present, else python3."
+        },
+        "stratum.enginePath": {
+          "type": "string",
+          "default": "",
+          "description": "Folder containing stratum_engine. Empty: the engine folder next to the extension."
+        }
+      }
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
@@ -25,20 +46,24 @@
     "watch": "tsc -watch -p ./",
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src",
-    "test": "vscode-test"
+    "test": "vscode-test",
+    "test:engine": "npm run compile && mocha --ui tdd out/test/engine.test.js"
   },
   "devDependencies": {
-    "@types/vscode": "^1.140.0",
     "@types/mocha": "^10.0.10",
     "@types/node": "24.x",
-    "typescript-eslint": "^8.61.1",
+    "@types/vscode": "^1.140.0",
+    "@vscode/test-cli": "^0.0.15",
+    "@vscode/test-electron": "^3.0.0",
     "eslint": "^10.5.0",
     "typescript": "^6.0.3",
-    "@vscode/test-cli": "^0.0.15",
-    "@vscode/test-electron": "^3.0.0"
+    "typescript-eslint": "^8.61.1"
   },
   "overrides": {
     "diff": "^8.0.4",
     "serialize-javascript": "^7.0.6"
+  },
+  "dependencies": {
+    "@hpcc-js/wasm-graphviz": "^1.30.0"
   }
 }

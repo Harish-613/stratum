@@ -1,0 +1,79 @@
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  padding: 0;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  color: var(--vscode-foreground);
+  background: var(--vscode-editor-background);
+  font-family: var(--vscode-font-family);
+  font-size: var(--vscode-font-size);
+  overflow: hidden;
+}
+
+#toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--vscode-panel-border);
+}
+#toolbar .group { display: flex; align-items: center; gap: 4px; }
+#crumbs { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#crumbs a { cursor: pointer; color: var(--vscode-textLink-foreground); }
+
+button {
+  border: 1px solid var(--vscode-button-border, transparent);
+  background: var(--vscode-button-secondaryBackground);
+  color: var(--vscode-button-secondaryForeground);
+  padding: 2px 10px;
+  border-radius: 3px;
+  cursor: pointer;
+  font: inherit;
+}
+button:hover { background: var(--vscode-button-secondaryHoverBackground); }
+button.active { background: var(--vscode-button-background); color: var(--vscode-button-foreground); }
+select {
+  background: var(--vscode-dropdown-background);
+  color: var(--vscode-dropdown-foreground);
+  border: 1px solid var(--vscode-dropdown-border);
+  font: inherit;
+}
+
+main { flex: 1; display: flex; min-height: 0; }
+
+#canvas { flex: 1; position: relative; overflow: hidden; cursor: grab; }
+#canvas.dragging { cursor: grabbing; }
+#graph { position: absolute; top: 0; left: 0; transform-origin: 0 0; }
+.hint { padding: 20px; opacity: 0.7; }
+
+/* Graphviz draws black text; make labels outside the boxes follow the theme. */
+#graph .cluster > text, #graph .edge > text { fill: var(--vscode-foreground); }
+#graph .cluster > path, #graph .cluster > polygon { stroke: var(--vscode-panel-border); }
+#graph g.node { cursor: pointer; }
+#graph g.node:hover > path, #graph g.node:hover > polygon { stroke: var(--vscode-focusBorder); stroke-width: 2px; }
+#graph g.edge.hot > path { stroke: var(--vscode-focusBorder); stroke-width: 2px; }
+#graph g.edge.hot > polygon { fill: var(--vscode-focusBorder); stroke: var(--vscode-focusBorder); }
+
+#sidebar {
+  width: 320px;
+  flex-shrink: 0;
+  overflow-y: auto;
+  border-left: 1px solid var(--vscode-panel-border);
+  padding: 8px 10px;
+}
+.stats { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px; margin-bottom: 10px; }
+.stats .muted { grid-column: 1 / -1; }
+details { margin: 6px 0; }
+summary { cursor: pointer; font-weight: 600; padding: 4px 0; }
+.item { padding: 3px 0 3px 12px; line-height: 1.5; word-break: break-all; }
+.item a { cursor: pointer; color: var(--vscode-textLink-foreground); }
+.item a:hover { text-decoration: underline; }
+.muted { opacity: 0.65; font-size: 0.92em; }
+
+@media (max-width: 700px) {
+  main { flex-direction: column; }
+  #sidebar { width: auto; height: 40%; border-left: none; border-top: 1px solid var(--vscode-panel-border); }
+}

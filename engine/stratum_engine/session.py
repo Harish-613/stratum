@@ -125,6 +125,8 @@ class Session:
     def _resolve_one(self, rel: str):
         targets, ext = set(), set()
         for imp in self.files[rel]["imports"]:
+            if imp.get("type_only"):
+                continue
             hit = self.resolver.resolve(rel, imp)
             if hit:
                 targets.update(hit)

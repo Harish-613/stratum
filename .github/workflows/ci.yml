@@ -18,3 +18,23 @@ jobs:
           python-version: "3.12"
       - run: pip install -r requirements.txt
       - run: python -m pytest
+
+  extension:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install engine into .venv (the extension's default interpreter)
+        run: python -m venv .venv && .venv/bin/pip install -r engine/requirements.txt
+      - run: npm ci
+        working-directory: extension
+      - run: npm run lint
+        working-directory: extension
+      - name: Engine client tests (real engine, no VS Code)
+        run: npm run test:engine
+        working-directory: extension

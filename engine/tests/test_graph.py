@@ -161,3 +161,52 @@ def test_python_package_boundaries_beat_folder_proximity(tmp_path):
     })
     f = analyze(str(tmp_path))["files"]
     assert f["tests/test_basic.py"]["imports"] == ["src/flask/__init__.py", "tests/apps/inner/flask.py"]
+
+
+def test_dot_focus_and_folder_views(tmp_path):
+    from stratum_engine.analyze import to_folder_dot
+
+    write(tmp_path, {
+        "api/routes.py": "from core import db\nfrom core import models\n",
+        "core/__init__.py": "",
+        "core/db.py": "",
+        "core/models.py": "from core import db\n",
+        "web/views.py": "from api import routes\n",
+        "tools/x.py": "",
+    })
+    r = analyze(str(tmp_path))
+    focused = to_dot(r, focus="api")
+    assert 'id="file:api/routes.py"' in focused
+    assert 'id="file:core/db.py"' in focused       # imported by api -> shown, greyed
+    assert 'id="file:web/views.py"' in focused     # imports api -> shown, greyed
+    assert "tools/x.py" not in focused             # unrelated -> hidden
+    assert '"core/models.py" -> "core/db.py"' not in focused  # edges between two neighbours hidden
+
+    folders = to_folder_dot(r, depth=1)
+    assert 'id="dir:api"' in folders and "2 files" not in folders.split('id="dir:api"')[0][-40:]
+    assert '"api" -> "core" [label="2"' in folders
+    assert '"web" -> "api" [label="1"' in folders
+
+
+def test_type_only_imports_do_not_create_cycles(tmp_path):
+    write(tmp_path, {
+        "app.py": "import models\n",
+        "models.py": "from typing import TYPE_CHECKING\nif TYPE_CHECKING:\n    from app import App\nelse:\n    import helpers\n",
+        "helpers.py": "",
+        "ui/a.ts": "import { b } from './b';\n",
+        "ui/b.ts": "import type { A } from './a';\nexport type { C } from './c';\n",
+        "ui/c.ts": "",
+    })
+    r = analyze(str(tmp_path))
+    assert r["cycles"] == []
+    assert r["files"]["models.py"]["imports"] == ["helpers.py"]  # else-branch import is real
+    assert r["files"]["ui/b.ts"]["imports"] == []
+
+
+def test_focus_view_summarizes_many_importers(tmp_path):
+    files = {"core/db.py": ""}
+    files.update({f"tests/test_{i}.py": "from core import db\n" for i in range(20)})
+    write(tmp_path, files)
+    dot = to_dot(analyze(str(tmp_path)), focus="core")
+    assert "20 other files" in dot
+    assert "tests/test_3.py" not in dot
