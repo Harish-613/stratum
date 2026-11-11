@@ -15,6 +15,7 @@ resolve.py's job.
 """
 
 from stratum_engine.languages import family, parser_for
+from stratum_engine.metrics import function_metrics
 
 
 def parse_python(source: bytes) -> dict:
@@ -80,6 +81,10 @@ def _span(node, name: str) -> dict:
     return {"name": name, "line": node.start_point[0] + 1, "end_line": node.end_point[0] + 1}
 
 
+def _function(node, name: str, fam: str) -> dict:
+    return {**_span(node, name), **function_metrics(node, fam)}
+
+
 def _string_value(node) -> str:
     """Contents of a string literal node without its quotes."""
     raw = _text(node)
@@ -96,7 +101,7 @@ def _walk(root, fam: str, out: dict) -> None:
         if t in FUNCTION_NODES[fam]:
             name = node.child_by_field_name("name")
             if name is not None:
-                out["functions"].append(_span(node, _text(name)))
+                out["functions"].append(_function(node, _text(name), fam))
                 if fam == "java" and _text(name) == "main" and "static" in _text(node).split("(", 1)[0]:
                     out["is_entry"] = True  # public static void main(String[] args)
         elif t in CLASS_NODES[fam]:
@@ -152,7 +157,7 @@ def _extract_extra(node, fam: str, out: dict) -> None:
             value = node.child_by_field_name("value")
             name = node.child_by_field_name("name")
             if value is not None and name is not None and value.type in ("arrow_function", "function_expression", "function"):
-                out["functions"].append(_span(value, _text(name)))
+                out["functions"].append(_function(value, _text(name), fam))
 
     elif fam == "go":
         if t == "package_clause":

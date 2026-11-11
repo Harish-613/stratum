@@ -26,6 +26,46 @@ def build_graph(root: str, files: dict):
     return edges, external
 
 
+# Functions smaller than this many syntax nodes are too trivial to call duplicates
+# (one-line getters, empty constructors, `return x`).
+MIN_DUPLICATE_SIZE = 40
+COMPLEXITY_THRESHOLD = 10  # common rule of thumb for "should be split up"
+
+
+def find_duplicates(files: dict, min_size: int = MIN_DUPLICATE_SIZE) -> list[dict]:
+    groups = defaultdict(list)
+    for path, info in files.items():
+        for fn in info["functions"]:
+            if fn.get("size", 0) >= min_size:
+                groups[fn["hash"]].append((path, fn))
+    dupes = []
+    for h, members in groups.items():
+        if len(members) < 2:
+            continue
+        lines = max(fn["end_line"] - fn["line"] + 1 for _, fn in members)
+        dupes.append({
+            "hash": h,
+            "size": members[0][1]["size"],
+            "lines": lines,
+            "instances": [
+                {"file": p, "name": fn["name"], "line": fn["line"], "end_line": fn["end_line"]}
+                for p, fn in sorted(members, key=lambda m: (m[0], m[1]["line"]))
+            ],
+        })
+    # Biggest payoff first: most duplicated lines.
+    return sorted(dupes, key=lambda d: (-d["lines"] * (len(d["instances"]) - 1), d["hash"]))
+
+
+def complex_functions(files: dict, threshold: int = COMPLEXITY_THRESHOLD) -> list[dict]:
+    found = [
+        {"file": p, "name": fn["name"], "line": fn["line"], "complexity": fn["complexity"]}
+        for p, info in files.items()
+        for fn in info["functions"]
+        if fn.get("complexity", 1) >= threshold
+    ]
+    return sorted(found, key=lambda f: (-f["complexity"], f["file"], f["line"]))
+
+
 def analyze_files(root: str, files: dict) -> dict:
     edges, external = build_graph(root, files)
     importers = defaultdict(set)
@@ -36,6 +76,8 @@ def analyze_files(root: str, files: dict) -> dict:
     entries = detect_entry_points(files, importers)
     cycles = find_cycles(files.keys(), edges)
     dead = unreachable_files(files, edges, entries)
+    dupes = find_duplicates(files)
+    complex_fns = complex_functions(files)
 
     file_report = {
         path: {
@@ -47,6 +89,7 @@ def analyze_files(root: str, files: dict) -> dict:
             "external_imports": external[path],
             "fan_in": len(importers[path]),
             "fan_out": len(edges[path]),
+            "max_complexity": max((fn["complexity"] for fn in info["functions"]), default=0),
         }
         for path, info in files.items()
     }
@@ -59,11 +102,15 @@ def analyze_files(root: str, files: dict) -> dict:
             "edges": sum(len(d) for d in edges.values()),
             "cycles": len(cycles),
             "unreachable": len(dead),
+            "duplicate_groups": len(dupes),
+            "complex_functions": len(complex_fns),
         },
         "files": file_report,
         "cycles": cycles,
         "entry_points": entries,
         "unreachable": dead,
+        "duplicates": dupes,
+        "complex_functions": complex_fns,
     }
 
 
