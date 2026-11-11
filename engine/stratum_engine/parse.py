@@ -91,6 +91,18 @@ def _string_value(node) -> str:
     return raw[1:-1] if len(raw) >= 2 and raw[0] in "'\"`" else raw
 
 
+def _in_type_checking_block(node) -> bool:
+    """True if a Python import sits under `if TYPE_CHECKING:` (type-checker only, never executed)."""
+    child, parent = node, node.parent
+    while parent is not None:
+        if parent.type == "if_statement" and child == parent.child_by_field_name("consequence"):
+            cond = _text(parent.child_by_field_name("condition")).replace(" ", "")
+            if cond in ("TYPE_CHECKING", "typing.TYPE_CHECKING", "t.TYPE_CHECKING"):
+                return True
+        child, parent = parent, parent.parent
+    return False
+
+
 def _walk(root, fam: str, out: dict) -> None:
     # Iterative pre-order traversal: deep files would overflow Python's recursion limit.
     stack = [root]
@@ -125,10 +137,11 @@ def _extract_extra(node, fam: str, out: dict) -> None:
             if "__name__" in cond and "__main__" in cond:
                 out["is_entry"] = True
         elif t == "import_statement":
+            type_only = _in_type_checking_block(node)
             for name in node.children_by_field_name("name"):
                 if name.type == "aliased_import":
                     name = name.child_by_field_name("name")
-                out["imports"].append({"module": _text(name), "names": [], "line": line})
+                out["imports"].append({"module": _text(name), "names": [], "line": line, "type_only": type_only})
         elif t == "import_from_statement":
             module = _text(node.child_by_field_name("module_name"))
             names = []
@@ -136,13 +149,16 @@ def _extract_extra(node, fam: str, out: dict) -> None:
                 if n.type == "aliased_import":
                     n = n.child_by_field_name("name")
                 names.append(_text(n))
-            out["imports"].append({"module": module, "names": names, "line": line})
+            out["imports"].append({"module": module, "names": names, "line": line,
+                                   "type_only": _in_type_checking_block(node)})
 
     elif fam == "js":
         if t in ("import_statement", "export_statement"):
             src = node.child_by_field_name("source")
             if src is not None:
-                out["imports"].append({"module": _string_value(src), "names": [], "line": line})
+                # `import type {X} from` / `export type {X} from` are erased at compile time.
+                type_only = any(c.type == "type" for c in node.children)
+                out["imports"].append({"module": _string_value(src), "names": [], "line": line, "type_only": type_only})
         elif t == "call_expression":
             fn = node.child_by_field_name("function")
             args = node.child_by_field_name("arguments")

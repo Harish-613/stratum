@@ -16,7 +16,7 @@ import json
 import sys
 import traceback
 
-from stratum_engine.analyze import to_dot
+from stratum_engine.analyze import to_dot, to_folder_dot
 from stratum_engine.session import Session
 
 
@@ -37,7 +37,10 @@ class Server:
         if method == "report":
             return self.session.report()
         if method == "dot":
-            return {"dot": to_dot(self.session.report())}
+            report = self.session.report()
+            if params.get("mode") == "folders":
+                return {"dot": to_folder_dot(report, int(params.get("depth", 2)))}
+            return {"dot": to_dot(report, params.get("focus", ""))}
         raise ValueError(f"unknown method: {method}")
 
     def _with_timings(self, report: dict) -> dict:
