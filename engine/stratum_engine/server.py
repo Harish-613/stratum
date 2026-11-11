@@ -7,7 +7,7 @@ Speaks newline-delimited JSON over stdin/stdout, one request per line:
     -> {"id": 2, "method": "update", "params": {"paths": ["src/app.py"]}}
     <- {"id": 2, "result": {...report..., "changed": ["src/app.py"]}}
 
-Methods: open, update, report, dot, shutdown. Errors come back as
+Methods: open, update, report, dot, docs, shutdown. Errors come back as
 {"id": n, "error": "message"}. Because the process stays alive, parse results
 stay in memory between requests, which is what makes updates incremental.
 """
@@ -41,6 +41,11 @@ class Server:
             if params.get("mode") == "folders":
                 return {"dot": to_folder_dot(report, int(params.get("depth", 2)))}
             return {"dot": to_dot(report, params.get("focus", ""))}
+        if method == "docs":
+            from stratum_engine import docs
+
+            llm = docs.llm_from_env(params.get("provider"), params.get("model"), params.get("api_key"))
+            return docs.generate_docs(self.session.root, self.session.report(), llm, params.get("paths"))
         raise ValueError(f"unknown method: {method}")
 
     def _with_timings(self, report: dict) -> dict:

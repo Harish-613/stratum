@@ -23,6 +23,13 @@ export function activate(context: vscode.ExtensionContext) {
 		vscode.commands.registerCommand('stratum.showGraph', () =>
 			report ? GraphPanel.show(context, getEngine(context), report) : analyzeWorkspace(context, true),
 		),
+		vscode.commands.registerCommand('stratum.generateDocs', () => generateDocs(context)),
+		vscode.commands.registerCommand('stratum.clearApiKey', async () => {
+			for (const provider of ['anthropic', 'openai']) {
+				await context.secrets.delete(`stratum.apiKey.${provider}`);
+			}
+			vscode.window.showInformationMessage('Stratum: saved API keys removed.');
+		}),
 		vscode.workspace.onDidChangeConfiguration(async (e) => {
 			if (e.affectsConfiguration('stratum')) {
 				await engine?.dispose();
@@ -70,6 +77,78 @@ async function analyzeWorkspace(context: vscode.ExtensionContext, showPanel: boo
 				const msg = (err as Error).message;
 				output.appendLine(msg);
 				vscode.window.showErrorMessage(`Stratum: ${msg}`, 'Show log').then((pick) => pick && output.show());
+			}
+		},
+	);
+}
+
+/** Chunk files at AST boundaries, summarize with an LLM, write .stratum/docs/. */
+async function generateDocs(context: vscode.ExtensionContext): Promise<void> {
+	const folder = vscode.workspace.workspaceFolders?.[0];
+	if (!folder) {
+		vscode.window.showWarningMessage('Stratum: open a folder first.');
+		return;
+	}
+	if (!report) {
+		await analyzeWorkspace(context, false);
+		if (!report) {
+			return;
+		}
+	}
+	const config = vscode.workspace.getConfiguration('stratum.docs');
+	const provider = config.get<string>('provider') || 'anthropic';
+	const secretKey = `stratum.apiKey.${provider}`;
+	let apiKey = await context.secrets.get(secretKey);
+	if (!apiKey) {
+		apiKey = await vscode.window.showInputBox({
+			title: `Stratum: ${provider === 'anthropic' ? 'Anthropic' : 'OpenAI'} API key`,
+			prompt: 'Stored in VS Code secret storage and only sent to the provider by the local engine.',
+			password: true,
+			ignoreFocusOut: true,
+		});
+		if (!apiKey) {
+			return;
+		}
+		await context.secrets.store(secretKey, apiKey);
+	}
+
+	const editor = vscode.window.activeTextEditor;
+	const scope = await vscode.window.showQuickPick(
+		[
+			{ label: 'Whole workspace', description: `${report.stats.files} files + ARCHITECTURE.md`, value: 'all' },
+			...(editor ? [{ label: 'Current file only', description: vscode.workspace.asRelativePath(editor.document.uri), value: 'file' }] : []),
+		],
+		{ title: 'Stratum: what should be documented?' },
+	);
+	if (!scope) {
+		return;
+	}
+	const paths = scope.value === 'file' && editor ? [vscode.workspace.asRelativePath(editor.document.uri, false)] : undefined;
+
+	await vscode.window.withProgress(
+		{ location: vscode.ProgressLocation.Notification, title: 'Stratum: generating docs…', cancellable: false },
+		async () => {
+			try {
+				const result = await getEngine(context).request<{ written: string[]; llm_calls: number; cache_hits: number }>('docs', {
+					provider,
+					model: config.get<string>('model') || undefined,
+					api_key: apiKey,
+					paths,
+				});
+				output.appendLine(`Docs: ${result.written.length} files written, ${result.llm_calls} LLM calls, ${result.cache_hits} cached`);
+				const first = result.written.find((w) => w.endsWith('ARCHITECTURE.md')) ?? result.written[0];
+				if (first) {
+					await vscode.window.showTextDocument(vscode.Uri.joinPath(folder.uri, first));
+				}
+				vscode.window.showInformationMessage(
+					`Stratum: wrote ${result.written.length} doc(s) to .stratum/docs (${result.llm_calls} LLM calls, ${result.cache_hits} reused from cache).`,
+				);
+			} catch (err) {
+				const msg = (err as Error).message;
+				if (/401|403|authentication|invalid.*key/i.test(msg)) {
+					await context.secrets.delete(secretKey);
+				}
+				vscode.window.showErrorMessage(`Stratum docs failed: ${msg}`);
 			}
 		},
 	);
