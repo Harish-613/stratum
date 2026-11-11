@@ -13,7 +13,7 @@ VERSION = "0.1.0"
 
 def main():
     parser = argparse.ArgumentParser(prog="stratum")
-    parser.add_argument("command", choices=["version", "parse", "scan", "symbols", "scan-all", "analyze", "dot"])
+    parser.add_argument("command", choices=["version", "parse", "scan", "symbols", "scan-all", "analyze", "dot", "serve"])
     parser.add_argument("file", nargs="?")
     args = parser.parse_args()
 
@@ -35,6 +35,10 @@ def main():
         print(json.dumps(analyze(args.file), indent=2))
     elif args.command == "dot":
         print(to_dot(analyze(args.file)))
+    elif args.command == "serve":
+        from stratum_engine.server import serve
+
+        serve()
 
 
 if __name__ == "__main__":

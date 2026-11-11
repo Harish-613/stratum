@@ -68,6 +68,11 @@ def complex_functions(files: dict, threshold: int = COMPLEXITY_THRESHOLD) -> lis
 
 def analyze_files(root: str, files: dict) -> dict:
     edges, external = build_graph(root, files)
+    return analyze_from_graph(root, files, edges, external)
+
+
+def analyze_from_graph(root: str, files: dict, edges: dict, external: dict) -> dict:
+    """Graph-wide passes over an already-resolved graph (used by Session for incremental updates)."""
     importers = defaultdict(set)
     for src, dsts in edges.items():
         for d in dsts:
