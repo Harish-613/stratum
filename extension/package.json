@@ -22,6 +22,14 @@
       {
         "command": "stratum.showGraph",
         "title": "Stratum: Show Dependency Graph"
+      },
+      {
+        "command": "stratum.generateDocs",
+        "title": "Stratum: Generate Docs (LLM)"
+      },
+      {
+        "command": "stratum.clearApiKey",
+        "title": "Stratum: Forget Saved API Key"
       }
     ],
     "configuration": {
@@ -36,6 +44,20 @@
           "type": "string",
           "default": "",
           "description": "Folder containing stratum_engine. Empty: the engine folder next to the extension."
+        },
+        "stratum.docs.provider": {
+          "type": "string",
+          "enum": [
+            "anthropic",
+            "openai"
+          ],
+          "default": "anthropic",
+          "description": "LLM provider for Stratum: Generate Docs."
+        },
+        "stratum.docs.model": {
+          "type": "string",
+          "default": "",
+          "description": "Model name. Empty: the engine default for the provider."
         }
       }
     }

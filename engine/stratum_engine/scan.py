@@ -5,7 +5,7 @@ from stratum_engine.parse import parse_file, parse_python
 
 SKIP_DIRS = {
     ".venv", "venv", "node_modules", ".git", "__pycache__", "dist", "build",
-    "out", "target", "vendor", ".next", ".tox", ".mypy_cache", "coverage",
+    "out", "target", "vendor", ".next", ".tox", ".mypy_cache", "coverage", ".stratum",
 }
 
 

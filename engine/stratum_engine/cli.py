@@ -13,8 +13,12 @@ VERSION = "0.1.0"
 
 def main():
     parser = argparse.ArgumentParser(prog="stratum")
-    parser.add_argument("command", choices=["version", "parse", "scan", "symbols", "scan-all", "analyze", "dot", "serve"])
+    parser.add_argument("command", choices=["version", "parse", "scan", "symbols", "scan-all", "analyze", "dot", "serve", "docs"])
     parser.add_argument("file", nargs="?")
+    parser.add_argument("--dry-run", action="store_true", help="docs: show the chunk plan without calling an LLM")
+    parser.add_argument("--provider", choices=["anthropic", "openai"], help="docs: LLM provider")
+    parser.add_argument("--model", help="docs: model name")
+    parser.add_argument("--only", nargs="*", help="docs: limit to these repo-relative files")
     args = parser.parse_args()
 
     if args.command == "version":
@@ -35,6 +39,15 @@ def main():
         print(json.dumps(analyze(args.file), indent=2))
     elif args.command == "dot":
         print(to_dot(analyze(args.file)))
+    elif args.command == "docs":
+        from stratum_engine import docs
+
+        report = analyze(args.file)
+        if args.dry_run:
+            print(json.dumps(docs.plan(args.file, args.only or sorted(report["files"])), indent=2))
+        else:
+            llm = docs.llm_from_env(args.provider, args.model)
+            print(json.dumps(docs.generate_docs(args.file, report, llm, args.only), indent=2))
     elif args.command == "serve":
         from stratum_engine.server import serve
 
