@@ -57,8 +57,18 @@ CLASS_NODES = {
 def parse_file(source: bytes, language: str) -> dict:
     tree = parser_for(language).parse(source)
     fam = family(language)
-    result = {"language": language, "package": None, "imports": [], "functions": [], "classes": []}
+    result = {
+        "language": language,
+        "package": None,
+        "imports": [],
+        "functions": [],
+        "classes": [],
+        "is_entry": False,  # has a program entry point (main guard, main method, package main)
+        "loc": sum(1 for line in source.splitlines() if line.strip()),
+    }
     _walk(tree.root_node, fam, result)
+    if fam == "go" and result["package"] == "main":
+        result["is_entry"] = True
     return result
 
 
@@ -87,6 +97,8 @@ def _walk(root, fam: str, out: dict) -> None:
             name = node.child_by_field_name("name")
             if name is not None:
                 out["functions"].append(_span(node, _text(name)))
+                if fam == "java" and _text(name) == "main" and "static" in _text(node).split("(", 1)[0]:
+                    out["is_entry"] = True  # public static void main(String[] args)
         elif t in CLASS_NODES[fam]:
             name = node.child_by_field_name("name")
             if name is not None:
@@ -103,7 +115,11 @@ def _extract_extra(node, fam: str, out: dict) -> None:
     line = node.start_point[0] + 1
 
     if fam == "python":
-        if t == "import_statement":
+        if t == "if_statement" and node.parent is not None and node.parent.type == "module":
+            cond = _text(node.child_by_field_name("condition"))
+            if "__name__" in cond and "__main__" in cond:
+                out["is_entry"] = True
+        elif t == "import_statement":
             for name in node.children_by_field_name("name"):
                 if name.type == "aliased_import":
                     name = name.child_by_field_name("name")
